@@ -93,7 +93,7 @@ with engine.connect() as conn:
         WITH distinct_excerpts AS (
             SELECT DISTINCT excerpt
             FROM analysis
-            LIMIT 2
+            LIMIT 100
         )
         SELECT t.*
         FROM analysis t
