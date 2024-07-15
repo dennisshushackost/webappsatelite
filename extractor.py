@@ -18,7 +18,8 @@ class DataLoader:
         self.load_predictions()
         self.load_original_parcels()
         self.load_overall_statistics()
-
+        self.load_images()
+        
     def process_gdf(self, gdf, table_name):
         # Ensure the geometry column is named 'geom'
         if 'geometry' in gdf.columns:
@@ -44,7 +45,6 @@ class DataLoader:
         gdf = gpd.read_file(path)
         self.process_gdf(gdf, 'analysis')
         
-
     def load_statistics(self):
         path = os.path.join(self.base_path, 'evaluation', 'statistics.csv')
         df = pd.read_csv(path)
@@ -54,14 +54,12 @@ class DataLoader:
         path = os.path.join(self.base_path, 'predictions', 'prediction_combined.gpkg')
         gdf = gpd.read_file(path)
         self.process_gdf(gdf, 'predictions')
-
+        
     def load_images(self):
-        path = os.path.join(self.base_path, 'prediction', 'images.csv')
+        path = os.path.join(self.base_path, 'predictions', 'satellite', 'image_data.csv')
         df = pd.read_csv(path)
-        df.columns = [
-            'filename', 'min_lat', 'min_lon', 'max_lat', 
-            'max_lon']
-        df.to_sql('images', self.engine, if_exists='replace', index=False)
+        df.columns = ['file_name', 'min_lat', 'min_lon', 'max_lat', 'max_lon']
+        df.to_sql('image_data', self.engine, if_exists='replace', index=False)
 
     def load_original_parcels(self):
         path = os.path.join(self.base_path, 'evaluation', 'all_original_parcels.gpkg')
@@ -89,7 +87,7 @@ class DataLoader:
                 conn.commit()
 
     def drop_tables(self):
-        tables = ['analysis', 'statistics', 'predictions', 'original_parcels', 'overall_statistics']
+        tables = ['analysis', 'statistics', 'predictions', 'original_parcels', 'overall_statistics', 'image_data']
         with self.engine.connect() as conn:
             for table in tables:
                 conn.execute(text(f"DROP TABLE IF EXISTS {table} CASCADE"))
