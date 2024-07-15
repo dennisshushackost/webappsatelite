@@ -4,12 +4,35 @@ import geopandas as gpd
 from sqlalchemy import create_engine, text
 from geoalchemy2 import Geometry
 from dotenv import load_dotenv
+import time
+from sqlalchemy.exc import OperationalError
 
 class DataLoader:
     def __init__(self, base_path):
         load_dotenv()  # Load environment variables from .env file
         self.base_path = base_path
-        self.engine = create_engine(os.getenv('DATABASE_URL'))
+        self.engine = self._get_db_connection()
+
+    def _get_db_connection(self):
+        max_retries = 10
+        retry_delay = 10
+
+        # Add initial delay to allow database to start up
+        time.sleep(10)
+
+        for attempt in range(max_retries):
+            try:
+                engine = create_engine(os.getenv('DATABASE_URL'))
+                with engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                return engine
+            except OperationalError as e:
+                if attempt < max_retries - 1:
+                    print(f"Database connection attempt {attempt + 1} failed. Retrying in {retry_delay} seconds...")
+                    print(f"Error: {str(e)}")
+                    time.sleep(retry_delay)
+                else:
+                    raise Exception(f"Failed to connect to the database after multiple attempts. Last error: {str(e)}")
 
     def load_data(self):
         self.create_tables()
@@ -42,6 +65,9 @@ class DataLoader:
 
     def load_analysis(self):
         path = os.path.join(self.base_path, 'evaluation', 'analysis.gpkg')
+        if not os.path.exists(path):
+            print(f"File not found: {path}")
+            return
         gdf = gpd.read_file(path)
         self.process_gdf(gdf, 'analysis')
         
@@ -111,7 +137,7 @@ class DataLoader:
         self.execute_sql_file(sql_file_path)
 
 if __name__ == "__main__":
-    base_path = r'C:\Users\dshus\Documents\Satelite\data\experiments\resunet_experiment_augmentation_False'
+    base_path = '/app/data'
     loader = DataLoader(base_path)
     loader.create_tables()
     loader.load_data()

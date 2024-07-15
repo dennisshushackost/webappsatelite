@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:13-3.1
+    environment:
+      POSTGRES_DB: your_database_name
+      POSTGRES_USER: your_username
+      POSTGRES_PASSWORD: your_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./tables.sql:/docker-entrypoint-initdb.d/tables.sql
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://your_username:your_password@db:5432/your_database_name
+    ports:
+      - "8501:8501"
+    depends_on:
+      - db
+    volumes:
+      - C:\Users\dshus\Documents\Satelite\data\experiments\resunet_experiment_augmentation_False:/app/data
+    command: sh -c "python extractor.py && streamlit run webapp.py"
+
+volumes:
+  postgres_data:
