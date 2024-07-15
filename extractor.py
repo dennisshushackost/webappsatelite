@@ -43,6 +43,7 @@ class DataLoader:
         path = os.path.join(self.base_path, 'evaluation', 'analysis.gpkg')
         gdf = gpd.read_file(path)
         self.process_gdf(gdf, 'analysis')
+        
 
     def load_statistics(self):
         path = os.path.join(self.base_path, 'evaluation', 'statistics.csv')
@@ -53,6 +54,14 @@ class DataLoader:
         path = os.path.join(self.base_path, 'predictions', 'prediction_combined.gpkg')
         gdf = gpd.read_file(path)
         self.process_gdf(gdf, 'predictions')
+
+    def load_images(self):
+        path = os.path.join(self.base_path, 'prediction', 'images.csv')
+        df = pd.read_csv(path)
+        df.columns = [
+            'filename', 'min_lat', 'min_lon', 'max_lat', 
+            'max_lon']
+        df.to_sql('images', self.engine, if_exists='replace', index=False)
 
     def load_original_parcels(self):
         path = os.path.join(self.base_path, 'evaluation', 'all_original_parcels.gpkg')

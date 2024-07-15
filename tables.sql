@@ -55,3 +55,11 @@ CREATE TABLE overall_statistics (
     average_overprediction_error FLOAT,
     average_recall_error FLOAT
 );
+
+CREATE TABLE images(
+    file_name TEXT PRIMARY KEY,
+    min_lat FLOAT,
+    min_lon FLOAT,
+    max_lat FLOAT,
+    max_lon FLOAT
+);

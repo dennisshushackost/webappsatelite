@@ -156,7 +156,6 @@ normal_gdf = normal_gdf[(normal_gdf['recall'] >= st.session_state.recall_range[0
 overpredicted_gdf = overpredicted_gdf[overpredicted_gdf['recall'].isnull() | ((overpredicted_gdf['recall'] >= st.session_state.recall_range[0]) & (overpredicted_gdf['recall'] <= st.session_state.recall_range[1]))]
 
 # Create map function
-# Create map function
 def create_map():
     m = folium.Map(location=st.session_state.map_view['center'], zoom_start=st.session_state.map_view['zoom'], tiles='CartoDB positron')
     
@@ -254,6 +253,7 @@ def create_map():
     
     return m
 
+# Display the map
 m = create_map()
 folium_static(m, width=700, height=500)
 
@@ -339,7 +339,6 @@ if st.session_state.selected_auschnitte:
         st.session_state.selected_auschnitte = []
         st.rerun()
 
-# Display the dataframe
 # Display the dataframe
 edited_df = st.data_editor(
     styled_df,
