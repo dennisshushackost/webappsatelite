@@ -61,7 +61,7 @@ CREATE TABLE image_data(
     min_lat FLOAT,
     min_lon FLOAT,
     max_lat FLOAT,
-    max_lon FLOAT
+    max_lon FLOAT,
     canton TEXT,
     full_path TEXT
 );
