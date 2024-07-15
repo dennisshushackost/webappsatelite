@@ -22,7 +22,7 @@ services:
     depends_on:
       - db
     volumes:
-      - /root/kaggle_download/testfiles/resunet_experiment_augmentation_False
+      - /root/kaggle_download/testfiles/resunet_experiment_augmentation_False:/app/data
     command: sh -c "python extractor.py && streamlit run webapp.py"
 
 volumes:
