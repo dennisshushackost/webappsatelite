@@ -59,6 +59,10 @@ class DataLoader:
         path = os.path.join(self.base_path, 'predictions', 'satellite', 'image_data.csv')
         df = pd.read_csv(path)
         df.columns = ['file_name', 'min_lat', 'min_lon', 'max_lat', 'max_lon', 'canton', 'full_path']
+        
+        # Add the full_path column
+        df['full_path'] = df['file_name'].apply(lambda x: os.path.join(self.base_path, 'predictions', 'satellite', x))
+        
         df.to_sql('image_data', self.engine, if_exists='replace', index=False)
 
     def load_original_parcels(self):

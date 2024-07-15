@@ -57,7 +57,7 @@ CREATE TABLE overall_statistics (
 );
 
 CREATE TABLE image_data(
-    file_name TEXT,
+    file_name TEXT PRIMARY KEY,
     min_lat FLOAT,
     min_lon FLOAT,
     max_lat FLOAT,

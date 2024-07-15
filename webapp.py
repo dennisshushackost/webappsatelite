@@ -8,6 +8,11 @@ from datetime import datetime, timedelta
 import os
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+import rasterio as rio
+from rasterio.warp import transform_bounds
+from PIL import Image
+import base64
+import io
 
 # Load environment variables
 load_dotenv()
@@ -39,6 +44,8 @@ if 'last_update_time' not in st.session_state:
     st.session_state.last_update_time = datetime.now()
 if 'selected_auschnitte' not in st.session_state:
     st.session_state.selected_auschnitte = []
+if 'show_satellite' not in st.session_state:
+    st.session_state.show_satellite = False
 
 st.title('Field Parcel Segmentation Analysis')
 
@@ -60,6 +67,7 @@ new_show_overpredictions = st.sidebar.checkbox('Show Overpredictions', st.sessio
 new_show_original_data = st.sidebar.checkbox('Show Original Data', False, help="Original Data without removing 5000m2 parcels")
 new_show_predictions = st.sidebar.checkbox('Show Predictions', st.session_state.show_predictions, help="Predictions from the model")
 new_show_recall_values = st.sidebar.checkbox('Show Recall Values', st.session_state.show_recall_values, help="Recall values of all parcels > 5000m2")
+new_show_satellite = st.sidebar.checkbox('Show Satellite Imagery', False, help="Show satellite imagery for selected parcels", disabled=len(st.session_state.selected_auschnitte) == 0)
 
 # Load cantons
 with engine.connect() as conn:
@@ -72,6 +80,7 @@ new_selected_canton = st.selectbox('Select a Canton', cantons, index=cantons.ind
 st.session_state.show_overpredictions = new_show_overpredictions
 st.session_state.show_predictions = new_show_predictions
 st.session_state.show_recall_values = new_show_recall_values
+st.session_state.show_satellite = new_show_satellite
 if new_selected_canton != st.session_state.selected_canton:
     st.session_state.selected_canton = new_selected_canton
     st.session_state.selected_auschnitte = []  # Reset selected Auschnitte when canton changes
@@ -129,10 +138,6 @@ with engine.connect() as conn:
         AND false_negative IS NULL
         AND recall IS NULL;
     """, conn, geom_col='geom')
-        # Show max 
-        # filtered_stats_df = pd.read_sql("SELECT * FROM statistics", conn)
-        #filtered_predictions_gdf = gpd.read_postgis("SELECT * FROM predictions", conn, geom_col='geom')
-        #filtered_original_data = gpd.read_postgis("SELECT * FROM original_parcels ", conn, geom_col='geom')
     else:
         filtered_gdf = gpd.read_postgis(f"SELECT * FROM analysis WHERE canton = '{st.session_state.selected_canton}'", conn, geom_col='geom')
         filtered_stats_df = pd.read_sql(f"SELECT * FROM statistics WHERE canton = '{st.session_state.selected_canton}'", conn)
@@ -155,6 +160,53 @@ normal_gdf = filtered_gdf[filtered_gdf['overpredicted'] != True].copy()
 normal_gdf = normal_gdf[(normal_gdf['recall'] >= st.session_state.recall_range[0]) & (normal_gdf['recall'] <= st.session_state.recall_range[1])]
 overpredicted_gdf = overpredicted_gdf[overpredicted_gdf['recall'].isnull() | ((overpredicted_gdf['recall'] >= st.session_state.recall_range[0]) & (overpredicted_gdf['recall'] <= st.session_state.recall_range[1]))]
 
+
+def get_satellite_image(file_name):
+    # Ensure file_name has .png extension
+    if not file_name.lower().endswith('.png'):
+        file_name += '.png'
+
+    with engine.connect() as conn:
+        image_data = pd.read_sql(f"SELECT * FROM image_data WHERE file_name = '{file_name}'", conn)
+    
+    if image_data.empty:
+        st.warning(f"No satellite image found for parcel {file_name}")
+        return None, None
+    
+    image_data = image_data.iloc[0]
+    file_path = image_data['full_path']    
+    try:
+        img = None
+        # First, try to open as a file
+        if os.path.exists(file_path):
+            with open(file_path, "rb") as f:
+                img = Image.open(f).copy()
+        else:
+            img_data = base64.b64decode(file_path)
+            img = Image.open(io.BytesIO(img_data))
+        
+        if img is None:
+            raise FileNotFoundError(f"Unable to locate image for parcel {file_name}")
+        
+        # Convert to RGB if it's not already
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Convert to base64 for Folium
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue()).decode()
+        
+        # Use the bounds from the database
+        bounds = (image_data['min_lon'], image_data['min_lat'], 
+                  image_data['max_lon'], image_data['max_lat'])
+        
+        return img_str, bounds
+    except Exception as e:
+        st.error(f"Error processing satellite image for parcel {file_name}: {str(e)}")
+        return None, None
+
+    
 # Create map function
 def create_map():
     m = folium.Map(location=st.session_state.map_view['center'], zoom_start=st.session_state.map_view['zoom'], tiles='CartoDB positron')
@@ -244,6 +296,18 @@ def create_map():
             ),
         ).add_to(m)
 
+    # Add satellite imagery if checkbox is checked and parcels are selected
+        # Add satellite imagery if checkbox is checked and parcels are selected
+    if st.session_state.show_satellite and st.session_state.selected_auschnitte:
+        for parcel in st.session_state.selected_auschnitte:
+            img_str, bounds = get_satellite_image(parcel)
+            if img_str is not None and bounds is not None:
+                folium.raster_layers.ImageOverlay(
+                    image=f"data:image/png;base64,{img_str}",
+                    bounds=[[bounds[1], bounds[0]], [bounds[3], bounds[2]]],
+                    opacity=1.0,
+                ).add_to(m)
+
     # Add color legend
     colormap.add_to(m)
     colormap.caption = 'Recall Score'
@@ -273,7 +337,6 @@ with engine.connect() as conn:
         avg_recall = pd.read_sql("SELECT AVG(recall) as avg_recall FROM analysis", conn)['avg_recall'].iloc[0]
     else:
         avg_recall = pd.read_sql(f"SELECT AVG(recall) as avg_recall FROM analysis WHERE canton = '{st.session_state.selected_canton}'", conn)['avg_recall'].iloc[0]
-
 for _, row in filtered_overall_stats.iterrows():
     st.subheader(f"Statistics for {row['canton']}")
     col1, col2 = st.columns(2)
