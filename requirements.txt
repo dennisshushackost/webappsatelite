@@ -1,0 +1,15 @@
+numpy 
+pandas 
+geopandas 
+rasterio 
+streamlit
+folium
+streamlit-folium
+branca
+rasterio
+numpy
+pillow
+psycopg2-binary 
+geoalchemy2 
+sqlalchemy
+python-dotenv
