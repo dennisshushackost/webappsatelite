@@ -22,7 +22,8 @@ services:
     depends_on:
       - db
     volumes:
-      - /root/kaggle_download/testfiles/resunet_experiment_augmentation_False:/app/data
+      # Change the path to the directory containing your data
+      - C:/Users/dshus/Documents/Satelite/data/experiments/unet_upscale_True_augmentation_False:/app/data
     command: sh -c "python extractor.py && streamlit run webapp.py"
 
 volumes:
